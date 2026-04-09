@@ -13,7 +13,7 @@ CERT_FILE = 'cert.pem'
 KEY_FILE = 'key.pem'
 QUESTIONS_FILE = 'questions.json'
 LOG_FILE = 'logs.txt'
-QUESTION_TIMEOUT = 10  # seconds
+QUESTION_TIMEOUT = 20  # seconds
 MIN_PLAYERS = 2
 
 # Logging setup
@@ -190,14 +190,29 @@ def quiz_engine():
 
 def start_server():
     # Setup SSL context
+
+
+    # Create a default SSL context configured for authenticating clients
     context = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
+    
+    # Load the server's certificate and private key into the SSL context
+    
     context.load_cert_chain(certfile=CERT_FILE, keyfile=KEY_FILE)
     
+    # Create a TCP socket using IPv4 (AF_INET) and TCP protocol (SOCK_STREAM)
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    server_socket.bind((HOST, PORT))
-    server_socket.listen(5)
     
+    # Allow the socket to reuse the same address and port
+    
+    server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    
+    # Bind the socket to a specific host and port
+    
+    server_socket.bind((HOST, PORT))
+    
+    # Put the socket into listening mode
+    # The argument (5) is the backlog: max number of queued connections
+    server_socket.listen(5)
     logging.info(f"Server listening on {HOST}:{PORT}")
     
     # Start quiz engine in a separate thread
@@ -206,10 +221,26 @@ def start_server():
     
     try:
         while True:
+
+        
+            # Accept an incoming client connection
+            # client_conn = socket object for communication with the client , addr = address of the client (IP, port)
             client_conn, addr = server_socket.accept()
+        
             try:
+                # Wrap the normal socket with SSL to make the connection secure (encrypted)
+                # server_side=True means this is the server performing SSL handshake
                 ssl_conn = context.wrap_socket(client_conn, server_side=True)
-                client_thread = threading.Thread(target=handle_client, args=(ssl_conn, addr), daemon=True)
+        
+                # Create a new thread to handle this client
+                client_thread = threading.Thread(
+                    target=handle_client,
+                    args=(ssl_conn, addr),
+                    daemon=True
+                )
+        
+                # Start the thread so it begins executing handle_client()
+                # This allows multiple clients to be handled at the same time
                 client_thread.start()
             except ssl.SSLError as e:
                 logging.error(f"SSL Handshake failed: {e}")
